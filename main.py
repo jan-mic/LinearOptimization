@@ -1,35 +1,19 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import tkinter as tk
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from scipy.optimize import linprog
 
 
-# from numpy.matlib import empty
-
-# Współczynniki funkcji celu.
-# funckja_celu = [20, -10]
-
-def oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_celu):
-    # macierz_wspolczynnikow_ograniczen_gornych = wspolczynniki_k
+def oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_celu, result_label):
     wspolczynniki_k_przeciwne = [[value * -1 for value in row] for row in
                                  wspolczynniki_k]
     ograniczenia_k_dolne_przeciwne = [value * -1 if value is not None else None for value in ograniczenia_k_dolne]
 
-    # Zbudowanie macierzy A_ub i wektora b_ub
+    # A_ub i b_ub
     wspolczynniki_funkcji_ograniczajacych = wspolczynniki_k + wspolczynniki_k_przeciwne
     ograniczenia_funkcji = ograniczenia_k_gorne + ograniczenia_k_dolne_przeciwne
 
-    # Usunięcie wartości None w A_ub i b_ub
-    # if wspolczynniki_funkcji and ograniczenia_funkcji:
-    #     ograniczenia_funkcji, wspolczynniki_funkcji = zip(*[
-    #         (bound, row) for bound, row in zip(ograniczenia_funkcji, wspolczynniki_funkcji)
-    #         if bound is not None
-    #     ])
-    #     wspolczynniki_funkcji = list(wspolczynniki_funkcji)
-    #     ograniczenia_funkcji = list(ograniczenia_funkcji)
     if wspolczynniki_funkcji_ograniczajacych and ograniczenia_funkcji:
         filtered_data = [
             (ograniczenie, wspolczynniki) for ograniczenie, wspolczynniki in
@@ -37,63 +21,43 @@ def oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_
             if ograniczenie is not None
         ]
 
-        if filtered_data:  # Sprawdź, czy lista po filtrowaniu nie jest pusta
+        if filtered_data:
             ograniczenia_funkcji, wspolczynniki_funkcji_ograniczajacych = zip(*filtered_data)
             wspolczynniki_funkcji_ograniczajacych = list(wspolczynniki_funkcji_ograniczajacych)
             ograniczenia_funkcji = list(ograniczenia_funkcji)
 
-            # for wspolczynnik, ograniczenie in zip(wspolczynniki_funkcji, ograniczenia_funkcji):
-            #     if ograniczenie is None:
-            #         wspolczynniki_funkcji.remove(wspolczynnik)
-            #         ograniczenia_funkcji.remove(ograniczenie)
-
-            #########
             wspolczynniki_funckji_celu = [-x for x in funckja_celu]
-            # optymalizacja liniowa: minimalizuje liniowa funkcje celu, rzy zadanych ograniczeniach
             result = linprog(c=wspolczynniki_funckji_celu, A_ub=wspolczynniki_funkcji_ograniczajacych,
                              b_ub=ograniczenia_funkcji,
                              method='highs')
 
-            result2 = linprog(c=funckja_celu, A_ub=wspolczynniki_funkcji_ograniczajacych,
-                             b_ub=ograniczenia_funkcji,
-                             method='highs')
-
-            # Wyświetlenie wyników
             if result.success:
                 print(f"Maksymalny zysk: {-result.fun} zł")
                 print(f"Liczba godzin dla W1 (x1): {result.x[0]}")
                 print(f"Liczba godzin dla W2 (x2): {result.x[1]}")
-                print(f"Liczba godzin dla W1 (x1) i W2 (x2): {result2.x[0]} : {result2.x[1]}")
+                # print(f"Liczba godzin dla W1 (x1) i W2 (x2): {result2.x[0]} : {result2.x[1]}")
+                result_label.config(
+                    text=f"Maksymalny zysk: {-result.fun} zł | (x1, x2): ({result.x[0]}, {result.x[1]})")
             else:
                 print("Nie znaleziono rozwiązania.")
+                result_label.config(text="Nie znaleziono rozwiązania.")
 
-            # Wyświetlenie rozwiązania jako punkt na wykresie
             if result.success:
-                # Rysowanie wykresu
-                # plt.figure(figsize=(10, 8))
-
-                # Zakres dla x
                 x = np.linspace(0, result.x[0] + 100)
 
-                ##########################
-
-                # Nowe okno w Tkinter
                 plot_window = tk.Toplevel()
                 plot_window.title("Wykres ograniczeń i rozwiązanie")
                 plot_window.geometry("1200x900")
 
-                # Tworzenie figury wykresu
                 fig = Figure(figsize=(7, 5), dpi=100)
                 ax = fig.add_subplot(111)
 
-                #####################33
-                # Rysowanie ograniczeń
                 for i in range(len(wspolczynniki_funkcji_ograniczajacych)):
                     x1, x2 = wspolczynniki_funkcji_ograniczajacych[i]
-                    if x2 != 0:  # Jeśli współczynnik x2 != 0 (prosta ukośna)
+                    if x2 != 0:  # prosta ukośna
                         y = (ograniczenia_funkcji[i] - x1 * x) / x2
                         ax.plot(x, y, label=f'Ograniczenie {x1}x1 + {x2}x2 = {ograniczenia_funkcji[i]}')
-                    else:  # Prosta pionowa (x2 == 0)
+                    else:  # prosta pionowa
                         x_vert = ograniczenia_funkcji[i] / x1 if x1 != 0 else 0
                         ax.axvline(x=x_vert, linestyle='--',
                                    label=f'Ograniczenie {x1}x1 + {x2}x2 = {ograniczenia_funkcji[i]} (pionowe)')
@@ -103,33 +67,27 @@ def oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_
                             textcoords="offset points",
                             xytext=(-10, 10), ha='center')
 
-                # Rysowanie funkcji celu jako linii na wykresie
+                # funkcja celu
                 z = wspolczynniki_funckji_celu[0] * result.x[0] + wspolczynniki_funckji_celu[1] * result.x[
-                    1]  # Obliczenie poziomu z w punkcie optymalnym
+                    1]
                 y_cel = (z - wspolczynniki_funckji_celu[0] * x) / wspolczynniki_funckji_celu[
-                    1]  # Równanie funkcji celu przekształcone na y = ...
+                    1]  # przeksztalcenie na y
                 ax.plot(x, y_cel, color='purple', linestyle='--',
                         label=f'Funkcja celu f(x1, x2) = {funckja_celu[0]}x1 {"+" if funckja_celu[1] >= 0 else "-"} {abs(funckja_celu[1])}x2 --> max')
 
-                # Dodanie siatki, legendy, tytułu i etykiet osi
                 ax.axhline(0, color='black', linewidth=0.5, linestyle="--")
                 ax.axvline(0, color='black', linewidth=0.5, linestyle="--")
                 ax.set_xlim(0, result.x[0] + 10)
                 ax.set_ylim(0, result.x[1] + 10)
-                ax.set_xlabel('x1 (Czas pracy W1)')
-                ax.set_ylabel('x2 (Czas pracy W2)')
+                ax.set_xlabel('x1')
+                ax.set_ylabel('x2')
                 ax.set_title('Wykres ograniczeń i rozwiązanie')
-                ax.legend(loc='upper right')
+                ax.legend()
                 ax.grid()
-                # ax.show()
 
-                # Osadzanie figury w oknie Tkinter
                 canvas = FigureCanvasTkAgg(fig, master=plot_window)
                 canvas.draw()
                 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-            #########
-
         else:
             ograniczenia_funkcji = []
             wspolczynniki_funkcji_ograniczajacych = [[], []]
@@ -153,8 +111,6 @@ def validate_entry(new_value):
 def window():
     window = tk.Tk()
     window.title("Wybor parametrow")
-
-    # Zarejestruj funkcję walidacji dla pól tekstowych
     validate_command = window.register(validate_entry)
 
     columns = ["Wyrób szklany", "K1", "K2", "K3"]
@@ -167,7 +123,7 @@ def window():
         "width": 10,
         "justify": "center",
         "validate": "key",
-        "validatecommand": (validate_command, '%P')  # Rejestracja walidatora
+        "validatecommand": (validate_command, '%P')
     }
 
     for column in columns:
@@ -296,10 +252,16 @@ def window():
         ustaw_ograniczenia(entries_funkcja_celu, funckja_celu)
 
         print(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne)
-        oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_celu)
+        oblicz(wspolczynniki_k, ograniczenia_k_dolne, ograniczenia_k_gorne, funckja_celu, result_label)
 
-    update_button = tk.Button(window, anchor='w', text="Oblicz", command=update_data)
-    update_button.pack(anchor='w', padx=10, pady=10)
+    button_label_frame = tk.Frame(window)
+    button_label_frame.pack(anchor='w', padx=10, pady=(0, 10))
+
+    update_button = tk.Button(button_label_frame, anchor='w', text="Oblicz", command=update_data)
+    update_button.pack(side="left")
+
+    result_label = tk.Label(button_label_frame, text="", fg="red")
+    result_label.pack(side="left", padx=10)
 
     window.mainloop()
 
